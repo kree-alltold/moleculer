@@ -683,7 +683,7 @@ class Transit {
 		if (!pass && !packet.stream && !packet.seq) return false;
 
 		if (!pass) {
-			this.logger.debug(
+			this.logger.info(
 				`<= New stream is received from '${packet.sender}'. Seq: ${packet.seq}`
 			);
 
@@ -697,7 +697,7 @@ class Transit {
 
 		if (packet.seq > pass.$prevSeq + 1) {
 			// Some chunks are late. Store these chunks.
-			this.logger.debug(
+			this.logger.info(
 				`Put the chunk into pool (size: ${pass.$pool.size}). Seq: ${packet.seq}`
 			);
 
@@ -714,6 +714,9 @@ class Transit {
 		pass.$prevSeq = packet.seq;
 
 		if (packet.seq == 0) {
+			this.logger.info(
+				`Constructing stream transform. Object mode = ${packet.meta && packet.meta["$streamObjectMode"]}`
+			);
 			pass.$transform = new Transform({
 				objectMode: packet.meta && packet.meta["$streamObjectMode"],
 				transform: function (chunk, encoding, done) {
@@ -730,7 +733,7 @@ class Transit {
 				if (!packet.success)
 					pass.$transform.emit("error", this._createErrFromPayload(packet.error, packet));
 
-				this.logger.debug(
+				this.logger.info(
 					`<= Stream closing is received from '${packet.sender}'. Seq: ${packet.seq}`
 				);
 
@@ -743,7 +746,7 @@ class Transit {
 				return true;
 			} else {
 				// stream chunk
-				this.logger.debug(
+				this.logger.info(
 					`<= Stream chunk is received from '${packet.sender}'. Seq: ${packet.seq}`
 				);
 				pass.$transform.write(
@@ -754,7 +757,7 @@ class Transit {
 
 		// Check newer chunks in the pool
 		if (pass.$pool.size > 0) {
-			this.logger.debug(`Has stored packets. Size: ${pass.$pool.size}`);
+			this.logger.info(`Has stored packets. Size: ${pass.$pool.size}`);
 			const nextSeq = pass.$prevSeq + 1;
 			const nextPacket = pass.$pool.get(nextSeq);
 			if (nextPacket) {
