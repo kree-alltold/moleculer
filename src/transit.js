@@ -687,18 +687,10 @@ class Transit {
 				`<= New stream is received from '${packet.sender}'. Seq: ${packet.seq}`
 			);
 
-			pass = new Transform({
-				// TODO: It's incorrect because the chunks may receive in random order, so it processes an empty meta.
-				// Meta is filled correctly only in the 0. chunk.
-				objectMode: packet.meta && packet.meta["$streamObjectMode"],
-				transform: function (chunk, encoding, done) {
-					this.push(chunk);
-					return done();
-				}
-			});
-
-			pass.$prevSeq = -1;
-			pass.$pool = new Map();
+			pass = {
+				$prevSeq: -1,
+				$pool: new Map(),
+			};
 
 			this.pendingResStreams.set(packet.id, pass);
 		}
@@ -721,22 +713,29 @@ class Transit {
 		// the next stream chunk received
 		pass.$prevSeq = packet.seq;
 
-		if (pass && packet.seq == 0) {
-			req.resolve(pass);
+		if (packet.seq == 0) {
+			pass.$transform = new Transform({
+				objectMode: packet.meta && packet.meta["$streamObjectMode"],
+				transform: function (chunk, encoding, done) {
+					this.push(chunk);
+					return done();
+				}
+			});
+			req.resolve(pass.$transform);
 		}
 
 		if (pass.$prevSeq > 0) {
 			if (!packet.stream) {
 				// Received error?
 				if (!packet.success)
-					pass.emit("error", this._createErrFromPayload(packet.error, packet));
+					pass.$transform.emit("error", this._createErrFromPayload(packet.error, packet));
 
 				this.logger.debug(
 					`<= Stream closing is received from '${packet.sender}'. Seq: ${packet.seq}`
 				);
 
 				// End of stream
-				pass.end();
+				pass.$transform.end();
 
 				// Remove pending request
 				this.removePendingRequest(packet.id);
@@ -747,7 +746,7 @@ class Transit {
 				this.logger.debug(
 					`<= Stream chunk is received from '${packet.sender}'. Seq: ${packet.seq}`
 				);
-				pass.write(
+				pass.$transform.write(
 					packet.data.type === "Buffer" ? Buffer.from(packet.data.data) : packet.data
 				);
 			}
