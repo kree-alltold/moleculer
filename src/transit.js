@@ -714,12 +714,11 @@ class Transit {
 		pass.$prevSeq = packet.seq;
 
 		if (packet.seq == 0) {
-			logger = this.logger;
-			logger.info('Constructing stream transform.', { objectMode: packet.meta && packet.meta["$streamObjectMode"] });
+			this.logger.info('Constructing stream transform.', { objectMode: packet.meta && packet.meta["$streamObjectMode"] });
 			pass.$transform = new Transform({
 				objectMode: packet.meta && packet.meta["$streamObjectMode"],
 				transform: function (chunk, encoding, done) {
-					logger.info(`Transform received a chunk. Is in object mode = ${this.readableObjectMode}`)
+					console.log(`Transform received a chunk. Is in object mode = ${this.readableObjectMode}`)
 					this.push(chunk);
 					return done();
 				}
